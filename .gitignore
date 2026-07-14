@@ -15,7 +15,7 @@ packages/web/.next/
 .env.development.local
 .env.test.local
 .env.production.local
-
+.aws/*
 # IDE
 .vscode/*
 !.vscode/extensions.json

@@ -1,15 +1,16 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common'
+import { type ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common'
 import { AuthGuard } from '@nestjs/passport'
+
+import type { AuthenticatedUser } from '../../common/current-user.decorator.js'
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unnecessary-type-parameters
-  override handleRequest<TUser = any>(
-    err: any,
-    user: any,
-    info: any,
-    _context: any,
-    _status?: any,
+  override handleRequest<TUser = AuthenticatedUser>(
+    err: Error | null,
+    user: TUser | false,
+    info: Error | undefined,
+    _context: ExecutionContext,
+    _status?: unknown,
   ): TUser {
     if (err || !user) {
       const message =
@@ -20,7 +21,6 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
           : 'No autorizado'
       throw err ?? new UnauthorizedException({ code: 'UNAUTHORIZED', message })
     }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return user
   }
 }

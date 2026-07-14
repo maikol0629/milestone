@@ -139,6 +139,8 @@ describe('apiRequest', () => {
   it('handles network errors', async () => {
     mockFetch.mockRejectedValueOnce(new Error('Network error'))
 
-    await expect(apiRequest('/test')).rejects.toThrow('Network error')
+    const result = await apiRequest('/test')
+    expect(result.success).toBe(false)
+    expect(result.error?.code).toBe('NETWORK_ERROR')
   })
 })

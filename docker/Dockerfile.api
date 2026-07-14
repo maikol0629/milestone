@@ -1,0 +1,59 @@
+# syntax=docker/dockerfile:1
+
+FROM node:22-alpine AS deps
+WORKDIR /app
+RUN apk add --no-cache libc6-compat openssl
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/api/package.json packages/api/
+COPY packages/web/package.json packages/web/
+ENV HUSKY=0
+RUN npm ci --ignore-scripts
+
+FROM node:22-alpine AS builder
+WORKDIR /app
+RUN apk add --no-cache libc6-compat openssl
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json tsconfig.base.json tsconfig.json turbo.json ./
+COPY packages/shared packages/shared
+COPY packages/api packages/api
+# Placeholder URL — required by prisma.config.ts at generate time
+ENV DATABASE_URL="postgresql://build:build@127.0.0.1:5432/milestone"
+ENV HUSKY=0
+RUN npm run build --workspace=@milestone/shared \
+  && npx --workspace=@milestone/api prisma generate \
+  && npm run build --workspace=@milestone/api
+
+FROM node:22-alpine AS runner
+WORKDIR /app
+RUN apk add --no-cache libc6-compat openssl wget python3 make g++ \
+  && addgroup -S milestone && adduser -S milestone -G milestone
+
+ENV NODE_ENV=production
+ENV PORT=3001
+ENV HUSKY=0
+ENV DATABASE_URL="postgresql://build:build@127.0.0.1:5432/milestone"
+
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/api/package.json packages/api/
+COPY packages/web/package.json packages/web/
+COPY packages/api/prisma packages/api/prisma
+COPY packages/api/prisma.config.ts packages/api/prisma.config.ts
+RUN npm ci --omit=dev --ignore-scripts \
+  && npm rebuild bcrypt \
+  && npx --workspace=@milestone/api prisma generate \
+  && npm cache clean --force \
+  && apk del python3 make g++
+
+COPY --from=builder /app/packages/shared/dist packages/shared/dist
+COPY --from=builder /app/packages/api/dist packages/api/dist
+COPY docker/api-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh && chown -R milestone:milestone /app
+
+USER milestone
+EXPOSE 3001
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:3001/api/health || exit 1
+
+ENTRYPOINT ["/entrypoint.sh"]

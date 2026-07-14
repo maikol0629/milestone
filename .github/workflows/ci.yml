@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DATABASE_URL: postgresql://ci:ci@localhost:5432/milestone
+  JWT_SECRET: ci-jwt-secret-that-is-long-enough-for-validation
+  CORS_ORIGIN: http://localhost:3000
+  NEXT_PUBLIC_API_URL: http://localhost:3001/api
+  NEXT_PUBLIC_SENTRY_DSN: ''
+  SENTRY_ORG: ''
+  SENTRY_PROJECT: ''
+  SENTRY_AUTH_TOKEN: ''
+  NODE_ENV: test
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: milestone
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Generate Prisma client
+        run: npx --workspace=@milestone/api prisma generate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests
+        run: npm test
+
+      - name: E2E tests
+        run: npm run test:e2e
+        working-directory: packages/api
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/milestone

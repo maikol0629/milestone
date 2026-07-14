@@ -1,0 +1,14 @@
+[phases.install]
+cmds = ["npm install -g npm@latest"]
+
+[phases.setup]
+nixPkgs = ["nodejs", "openssl"]
+
+[phases.provision]
+cmds = ["npm ci"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm run start:prod"

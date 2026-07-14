@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum EventType {
+  event
+  reminder
+  work_block
+}
+
+model User {
+  id             String         @id @default(uuid())
+  email          String         @unique
+  name           String?
+  password_hash  String
+  refresh_tokens RefreshToken[]
+  life_areas     LifeArea[]
+  goals          Goal[]
+  projects       Project[]
+  activities     Activity[]
+  events         Event[]
+  time_sessions  TimeSession[]
+  created_at     DateTime       @default(now())
+  updated_at     DateTime       @updatedAt
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid())
+  token_hash String   @unique
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  expires_at DateTime
+  created_at DateTime @default(now())
+
+  @@index([token_hash])
+  @@index([user_id])
+}
+
+model LifeArea {
+  id         String    @id @default(uuid())
+  name       String
+  color      String?
+  user_id    String
+  user       User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  goals      Goal[]
+  deleted_at DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+
+  @@index([user_id])
+  @@index([user_id, deleted_at])
+}
+
+model Goal {
+  id           String    @id @default(uuid())
+  title        String
+  description  String?
+  life_area_id String
+  life_area    LifeArea  @relation(fields: [life_area_id], references: [id], onDelete: Cascade)
+  user_id      String
+  user         User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  projects     Project[]
+  deleted_at   DateTime?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+
+  @@index([user_id])
+  @@index([life_area_id])
+  @@index([user_id, deleted_at])
+}
+
+model Project {
+  id         String     @id @default(uuid())
+  name       String
+  goal_id    String
+  goal       Goal       @relation(fields: [goal_id], references: [id], onDelete: Cascade)
+  user_id    String
+  user       User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  activities Activity[]
+  deleted_at DateTime?
+  created_at DateTime   @default(now())
+  updated_at DateTime   @updatedAt
+
+  @@index([user_id])
+  @@index([goal_id])
+  @@index([user_id, deleted_at])
+}
+
+model Activity {
+  id            String        @id @default(uuid())
+  title         String
+  project_id    String
+  project       Project       @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  user_id       String
+  user          User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  events        Event[]
+  time_sessions TimeSession[]
+  deleted_at    DateTime?
+  created_at    DateTime      @default(now())
+  updated_at    DateTime      @updatedAt
+
+  @@index([user_id])
+  @@index([project_id])
+  @@index([user_id, deleted_at])
+}
+
+model Event {
+  id                     String    @id @default(uuid())
+  title                  String
+  description            String?
+  start_at               DateTime
+  end_at                 DateTime
+  type                   EventType @default(event)
+  activity_id            String?
+  activity               Activity? @relation(fields: [activity_id], references: [id], onDelete: SetNull)
+  user_id                String
+  user                   User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  sync_version           Int       @default(1)
+
+  recurrence_rule        String?
+  recurrence_interval    Int?
+  recurrence_days_of_week String?
+  recurrence_end_date    DateTime?
+  is_milestone           Boolean   @default(false)
+  milestone_date         DateTime?
+
+  deleted_at             DateTime?
+  created_at             DateTime  @default(now())
+  updated_at             DateTime  @updatedAt
+
+  @@index([user_id])
+  @@index([user_id, start_at, end_at])
+  @@index([activity_id])
+  @@index([user_id, deleted_at, start_at])
+  @@index([recurrence_rule])
+}
+
+model TimeSession {
+  id          String    @id @default(uuid())
+  start_at    DateTime
+  end_at      DateTime?
+  activity_id String
+  activity    Activity  @relation(fields: [activity_id], references: [id], onDelete: Cascade)
+  user_id     String
+  user        User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  deleted_at  DateTime?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  @@index([user_id])
+  @@index([activity_id])
+  @@index([user_id, deleted_at])
+}

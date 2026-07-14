@@ -1,0 +1,56 @@
+# syntax=docker/dockerfile:1
+
+FROM node:22-alpine AS deps
+WORKDIR /app
+RUN apk add --no-cache libc6-compat
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/api/package.json packages/api/
+COPY packages/web/package.json packages/web/
+ENV HUSKY=0
+RUN npm ci --ignore-scripts
+
+FROM node:22-alpine AS builder
+WORKDIR /app
+RUN apk add --no-cache libc6-compat
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json package-lock.json tsconfig.base.json tsconfig.json turbo.json ./
+COPY packages/shared packages/shared
+COPY packages/web packages/web
+
+ARG NEXT_PUBLIC_API_URL=http://localhost:3001/api
+ARG NEXT_PUBLIC_SENTRY_DSN=
+ARG SENTRY_ORG=
+ARG SENTRY_PROJECT=
+ARG SENTRY_AUTH_TOKEN=
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV SENTRY_ORG=$SENTRY_ORG
+ENV SENTRY_PROJECT=$SENTRY_PROJECT
+ENV SENTRY_AUTH_TOKEN=$SENTRY_AUTH_TOKEN
+ENV HUSKY=0
+
+RUN npm run build --workspace=@milestone/shared \
+  && npm run build --workspace=@milestone/web
+
+FROM node:22-alpine AS runner
+WORKDIR /app
+RUN apk add --no-cache libc6-compat wget \
+  && addgroup -S milestone && adduser -S milestone -G milestone
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
+ENV NEXT_TELEMETRY_DISABLED=1
+
+COPY --from=builder /app/packages/web/public ./packages/web/public
+COPY --from=builder /app/packages/web/.next/standalone ./
+COPY --from=builder /app/packages/web/.next/static ./packages/web/.next/static
+
+USER milestone
+EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:3000/ || exit 1
+
+CMD ["node", "packages/web/server.js"]

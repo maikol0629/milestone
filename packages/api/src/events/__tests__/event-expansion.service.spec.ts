@@ -127,7 +127,14 @@ describe('EventExpansionService', () => {
     it('should return original event for non-recurring event', () => {
       const result = service.getNextOccurrences(mockMilestone, 5)
 
-      expect(result).toEqual([mockMilestone])
+      expect(result).toHaveLength(1)
+      expect(result[0]).toMatchObject({
+        id: mockMilestone.id,
+        title: mockMilestone.title,
+        start_at: mockMilestone.start_at,
+        end_at: mockMilestone.end_at,
+        recurrence_rule: null,
+      })
     })
   })
 

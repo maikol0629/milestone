@@ -18,7 +18,7 @@ COPY package.json package-lock.json tsconfig.base.json tsconfig.json turbo.json 
 COPY packages/shared packages/shared
 COPY packages/web packages/web
 
-ARG NEXT_PUBLIC_API_URL=http://localhost:3001/api
+ARG NEXT_PUBLIC_API_URL=/api
 ARG NEXT_PUBLIC_SENTRY_DSN=
 ARG SENTRY_ORG=
 ARG SENTRY_PROJECT=

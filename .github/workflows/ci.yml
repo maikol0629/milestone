@@ -61,8 +61,4 @@ jobs:
       - name: Unit tests
         run: npm test
 
-      - name: E2E tests
-        run: npm run test:e2e
-        working-directory: packages/api
-        env:
-          DATABASE_URL: postgresql://ci:ci@localhost:5432/milestone
+

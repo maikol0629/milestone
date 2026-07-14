@@ -9,6 +9,7 @@ dist/
 packages/api/dist/
 packages/web/.next/
 
+.vscode/
 # Environment
 .env
 .env.local

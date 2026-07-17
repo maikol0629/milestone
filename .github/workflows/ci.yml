@@ -47,7 +47,7 @@ jobs:
       - run: npm ci
 
       - name: Generate Prisma client
-        run: npx --workspace=@milestone/api prisma generate
+        run: npm run --workspace=@milestone/api prisma:generate
 
       - name: Typecheck
         run: npm run typecheck

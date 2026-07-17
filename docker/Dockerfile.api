@@ -21,7 +21,7 @@ COPY packages/api packages/api
 ENV DATABASE_URL="postgresql://build:build@127.0.0.1:5432/milestone"
 ENV HUSKY=0
 RUN npm run build --workspace=@milestone/shared \
-  && npx --workspace=@milestone/api prisma generate \
+  && npm run --workspace=@milestone/api prisma:generate \
   && npm run build --workspace=@milestone/api
 
 FROM node:22-alpine AS runner
@@ -42,7 +42,7 @@ COPY packages/api/prisma packages/api/prisma
 COPY packages/api/prisma.config.ts packages/api/prisma.config.ts
 RUN npm ci --omit=dev --ignore-scripts \
   && npm rebuild bcrypt \
-  && npx --workspace=@milestone/api prisma generate \
+  && npm run --workspace=@milestone/api prisma:generate \
   && npm cache clean --force \
   && apk del python3 make g++
 

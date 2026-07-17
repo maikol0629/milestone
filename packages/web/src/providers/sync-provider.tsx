@@ -50,7 +50,6 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
         const result = await pullChanges(lastTimestamp)
         localStorage.setItem(SYNC_TIMESTAMP_KEY, result.server_timestamp)
         setLastSyncAt(new Date())
-        await queryClient.invalidateQueries()
       } catch (err) {
         console.error('Pull inicial falló:', err)
       } finally {
@@ -71,7 +70,12 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
             const result = await pullChanges(lastTimestamp)
             localStorage.setItem(SYNC_TIMESTAMP_KEY, result.server_timestamp)
             setLastSyncAt(new Date())
-            await queryClient.invalidateQueries()
+            await queryClient.invalidateQueries({
+              queryKey: ['events'],
+            })
+            await queryClient.invalidateQueries({
+              queryKey: ['time-sessions'],
+            })
           }
         } catch (err) {
           console.error('Sincronización al reconectar falló:', err)
@@ -95,7 +99,12 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
             const result = await pullChanges(lastTimestamp)
             localStorage.setItem(SYNC_TIMESTAMP_KEY, result.server_timestamp)
             setLastSyncAt(new Date())
-            await queryClient.invalidateQueries()
+            await queryClient.invalidateQueries({
+              queryKey: ['events'],
+            })
+            await queryClient.invalidateQueries({
+              queryKey: ['time-sessions'],
+            })
           }
         } catch (err) {
           console.error('Sincronización periódica falló:', err)

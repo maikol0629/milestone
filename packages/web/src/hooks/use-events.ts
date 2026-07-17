@@ -26,6 +26,7 @@ export function useEvents(params?: {
       if (!res.success) throw new Error(res.error.message)
       return { items: res.data, meta: res.meta ?? { page: 1, limit: 50, total: res.data.length } }
     },
+    retry: false,
   })
 }
 
@@ -50,7 +51,7 @@ export function useCreateEvent() {
       return res.data
     },
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ['events'] })
+      queryClient.invalidateQueries({ queryKey: ['events'] })
     },
   })
 }
@@ -77,23 +78,25 @@ export function useUpdateEvent() {
           ...old,
           items: old.items.map((item) => {
             if (item.id !== id) return item
+
+            let recurrenceEndDate = item.recurrence_end_date
+            if (data.recurrence_end_date !== undefined) {
+              recurrenceEndDate =
+                data.recurrence_end_date === null ? null : new Date(data.recurrence_end_date)
+            }
+
+            let milestoneDate = item.milestone_date
+            if (data.milestone_date !== undefined) {
+              milestoneDate = data.milestone_date === null ? null : new Date(data.milestone_date)
+            }
+
             return {
               ...item,
               ...data,
               start_at: data.start_at !== undefined ? new Date(data.start_at) : item.start_at,
               end_at: data.end_at !== undefined ? new Date(data.end_at) : item.end_at,
-              recurrence_end_date:
-                data.recurrence_end_date !== undefined
-                  ? data.recurrence_end_date === null
-                    ? null
-                    : new Date(data.recurrence_end_date)
-                  : item.recurrence_end_date,
-              milestone_date:
-                data.milestone_date !== undefined
-                  ? data.milestone_date === null
-                    ? null
-                    : new Date(data.milestone_date)
-                  : item.milestone_date,
+              recurrence_end_date: recurrenceEndDate,
+              milestone_date: milestoneDate,
             }
           }),
         }
@@ -106,7 +109,7 @@ export function useUpdateEvent() {
       })
     },
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ['events'] })
+      queryClient.invalidateQueries({ queryKey: ['events'] })
     },
   })
 }
@@ -139,7 +142,7 @@ export function useDeleteEvent() {
       })
     },
     onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ['events'] })
+      queryClient.invalidateQueries({ queryKey: ['events'] })
     },
   })
 }

@@ -16,12 +16,11 @@ export function useNotifications() {
   const [upcomingCount, setUpcomingCount] = useState(0)
   const notifiedRef = useRef(new Set<string>())
 
-  const now = new Date()
-  const fifteenMinutesLater = new Date(now.getTime() + 15 * 60 * 1000)
-
   const { data } = useQuery({
-    queryKey: ['notifications-upcoming', now.getTime()],
+    queryKey: ['notifications-upcoming'],
     queryFn: async () => {
+      const now = new Date()
+      const fifteenMinutesLater = new Date(now.getTime() + 15 * 60 * 1000)
       const res = await apiRequest<EventItem[]>('/events', {
         params: {
           start: now.toISOString(),
@@ -33,6 +32,7 @@ export function useNotifications() {
       return { items: res.data }
     },
     refetchInterval: 60_000,
+    retry: false,
   })
 
   useEffect(() => {

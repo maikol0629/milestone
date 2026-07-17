@@ -29,7 +29,7 @@ import { UsersModule } from './users/users.module.js'
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
-        limit: 60,
+        limit: Number(process.env.RATE_LIMIT_MAX) || 200,
       },
     ]),
     PrismaModule,

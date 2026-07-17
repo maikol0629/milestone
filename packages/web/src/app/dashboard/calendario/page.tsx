@@ -4,7 +4,7 @@ import type { Event } from '@milestone/shared'
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns'
 import { CalendarDays, List, Maximize2, PanelRightOpen } from 'lucide-react'
 import dynamic from 'next/dynamic'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 
 import { CalendarGrid } from '@/components/calendar/calendar-grid'
@@ -50,20 +50,23 @@ export default function CalendarPage() {
   const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 })
   const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
 
-  const eventsParams: Record<string, string | number | undefined> =
-    viewMode === 'month'
-      ? { start: gridStart.toISOString(), end: gridEnd.toISOString() }
-      : viewMode === 'day'
-        ? {
-            start: new Date(currentDate).toISOString(),
-            end: new Date(currentDate.getTime() + 86400000).toISOString(),
-          }
-        : viewMode === 'week'
+  const eventsParams: Record<string, string | number | undefined> = useMemo(
+    () =>
+      viewMode === 'month'
+        ? { start: gridStart.toISOString(), end: gridEnd.toISOString() }
+        : viewMode === 'day'
           ? {
-              start: startOfWeek(currentDate, { weekStartsOn: 1 }).toISOString(),
-              end: endOfWeek(currentDate, { weekStartsOn: 1 }).toISOString(),
+              start: new Date(currentDate).toISOString(),
+              end: new Date(currentDate.getTime() + 86400000).toISOString(),
             }
-          : { page, limit }
+          : viewMode === 'week'
+            ? {
+                start: startOfWeek(currentDate, { weekStartsOn: 1 }).toISOString(),
+                end: endOfWeek(currentDate, { weekStartsOn: 1 }).toISOString(),
+              }
+            : { page, limit },
+    [viewMode, gridStart, gridEnd, currentDate, page, limit],
+  )
 
   const { isLoading: authLoading } = useRequireAuth()
   const { data: eventsData, isLoading, error } = useEvents(eventsParams)

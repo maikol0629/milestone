@@ -12,21 +12,21 @@ import { useRequireAuth } from '@/hooks/use-auth'
 import { useEvents } from '@/hooks/use-events'
 import { useTimeSessions } from '@/hooks/use-time-sessions'
 import { useAuthStore } from '@/lib/auth-store'
+import { useMemo } from 'react'
 import { calculateFreeTime } from '@/lib/time-utils'
 
 export default function DashboardPage() {
   const { user } = useAuthStore()
   const { isLoading } = useRequireAuth()
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-
-  const { data: eventsData, isLoading: eventsLoading } = useEvents({
-    start: today.toISOString(),
-    end: tomorrow.toISOString(),
-  })
+  const eventsParams = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    return { start: today.toISOString(), end: tomorrow.toISOString() }
+  }, [])
+  const { data: eventsData, isLoading: eventsLoading } = useEvents(eventsParams)
   const { data: sessions, isLoading: sessionsLoading } = useTimeSessions()
 
   if (isLoading || eventsLoading || sessionsLoading) return <Spinner />

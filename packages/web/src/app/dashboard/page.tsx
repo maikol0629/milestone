@@ -1,5 +1,7 @@
 'use client'
 
+import { useMemo } from 'react'
+
 import {
   DayTimeline,
   SuggestedBlock,
@@ -12,7 +14,6 @@ import { useRequireAuth } from '@/hooks/use-auth'
 import { useEvents } from '@/hooks/use-events'
 import { useTimeSessions } from '@/hooks/use-time-sessions'
 import { useAuthStore } from '@/lib/auth-store'
-import { useMemo } from 'react'
 import { calculateFreeTime } from '@/lib/time-utils'
 
 export default function DashboardPage() {

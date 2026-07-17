@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import { Sidebar } from '../sidebar'
 import { useAuthStore } from '@/lib/auth-store'
@@ -29,57 +30,53 @@ beforeEach(() => {
   })
 })
 
+function renderSidebar() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+    },
+  })
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <Sidebar />
+    </QueryClientProvider>,
+  )
+}
+
 describe('Sidebar', () => {
-  it('renders brand link', () => {
-    render(<Sidebar />)
-    expect(screen.getByText('Milestone')).toBeInTheDocument()
+  it.each([
+    ['first', ['Inicio', 'Calendario', 'Tiempo']],
+    ['second', ['Áreas', 'Objetivos', 'Proyectos', 'Actividades']],
+    ['third', ['Estadísticas', 'Configuración']],
+  ])('renders %s group navigation items', (_groupName, items) => {
+    renderSidebar()
+    for (const item of items) {
+      expect(screen.getByText(item)).toBeInTheDocument()
+    }
   })
 
-  it('renders first group navigation items', () => {
-    render(<Sidebar />)
-    expect(screen.getByText('Inicio')).toBeInTheDocument()
-    expect(screen.getByText('Calendario')).toBeInTheDocument()
-    expect(screen.getByText('Tiempo')).toBeInTheDocument()
-  })
-
-  it('renders second group navigation items', () => {
-    render(<Sidebar />)
-    expect(screen.getByText('Áreas')).toBeInTheDocument()
-    expect(screen.getByText('Objetivos')).toBeInTheDocument()
-    expect(screen.getByText('Proyectos')).toBeInTheDocument()
-    expect(screen.getByText('Actividades')).toBeInTheDocument()
-  })
-
-  it('renders third group navigation items', () => {
-    render(<Sidebar />)
-    expect(screen.getByText('Estadísticas')).toBeInTheDocument()
-    expect(screen.getByText('Configuración')).toBeInTheDocument()
-  })
-
-  it('highlights current route', () => {
-    render(<Sidebar />)
-    const link = screen.getByText('Áreas').closest('a')
-    expect(link).toHaveClass('bg-primary')
-  })
-
-  it('shows user info', () => {
-    render(<Sidebar />)
-    expect(screen.getByText('Test User')).toBeInTheDocument()
-    expect(screen.getByText('test@test.com')).toBeInTheDocument()
-  })
-
-  it('shows logout button', () => {
-    render(<Sidebar />)
-    expect(screen.getByText('Cerrar sesión')).toBeInTheDocument()
-  })
-
-  it('shows theme toggle button', () => {
-    render(<Sidebar />)
-    expect(screen.getByText('Modo oscuro')).toBeInTheDocument()
-  })
-
-  it('renders mobile toggle button', () => {
-    render(<Sidebar />)
-    expect(screen.getByLabelText('Toggle sidebar')).toBeInTheDocument()
+  it.each([
+    ['brand link', () => expect(screen.getByText('Milestone')).toBeInTheDocument()],
+    [
+      'current route highlight',
+      () => expect(screen.getByText('Áreas').closest('a')).toHaveClass('bg-primary'),
+    ],
+    [
+      'user info',
+      () => {
+        expect(screen.getByText('Test User')).toBeInTheDocument()
+        expect(screen.getByText('test@test.com')).toBeInTheDocument()
+      },
+    ],
+    ['logout button', () => expect(screen.getByText('Cerrar sesión')).toBeInTheDocument()],
+    ['theme toggle button', () => expect(screen.getByText('Modo oscuro')).toBeInTheDocument()],
+    [
+      'mobile toggle button',
+      () => expect(screen.getByLabelText('Toggle sidebar')).toBeInTheDocument(),
+    ],
+  ])('renders %s', (_label, assertion) => {
+    renderSidebar()
+    assertion()
   })
 })

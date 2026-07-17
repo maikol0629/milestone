@@ -1,7 +1,6 @@
 'use client'
 
 import type { Event } from '@milestone/shared'
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek } from 'date-fns'
 import { CalendarDays, List, Maximize2, PanelRightOpen } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { useMemo, useState } from 'react'
@@ -22,6 +21,7 @@ import { useRequireAuth } from '@/hooks/use-auth'
 import { useEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } from '@/hooks/use-events'
 import { useLifeAreas } from '@/hooks/use-life-areas'
 import { useProjects } from '@/hooks/use-projects'
+import { getEventsRangeParams } from '@/lib/events-query'
 import { cn } from '@/lib/utils'
 
 const DayView = dynamic(
@@ -34,6 +34,10 @@ const DayView = dynamic(
 type ViewMode = 'list' | 'month' | 'week' | 'day'
 type FormMode = 'event' | 'work_block' | 'reminder' | null
 
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback
+}
+
 export default function CalendarPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -45,27 +49,12 @@ export default function CalendarPage() {
   const [showForm, setShowForm] = useState<FormMode>(null)
   const limit = 50
 
-  const monthStart = startOfMonth(currentMonth)
-  const monthEnd = endOfMonth(currentMonth)
-  const gridStart = startOfWeek(monthStart, { weekStartsOn: 1 })
-  const gridEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
-
   const eventsParams: Record<string, string | number | undefined> = useMemo(
     () =>
-      viewMode === 'month'
-        ? { start: gridStart.toISOString(), end: gridEnd.toISOString() }
-        : viewMode === 'day'
-          ? {
-              start: new Date(currentDate).toISOString(),
-              end: new Date(currentDate.getTime() + 86400000).toISOString(),
-            }
-          : viewMode === 'week'
-            ? {
-                start: startOfWeek(currentDate, { weekStartsOn: 1 }).toISOString(),
-                end: endOfWeek(currentDate, { weekStartsOn: 1 }).toISOString(),
-              }
-            : { page, limit },
-    [viewMode, gridStart, gridEnd, currentDate, page, limit],
+      viewMode === 'list'
+        ? { page, limit }
+        : getEventsRangeParams({ viewMode, currentDate, currentMonth }),
+    [viewMode, currentDate, currentMonth, page, limit],
   )
 
   const { isLoading: authLoading } = useRequireAuth()
@@ -78,10 +67,6 @@ export default function CalendarPage() {
   const del = useDeleteEvent()
 
   const events = eventsData?.items
-
-  function errorMessage(error: unknown, fallback: string) {
-    return error instanceof Error ? error.message : fallback
-  }
 
   async function handleEventMove(eventId: string, newStart: Date, newEnd: Date) {
     try {
@@ -369,17 +354,14 @@ export default function CalendarPage() {
                         month: 'short',
                         hour: '2-digit',
                         minute: '2-digit',
+                      })}{' '}
+                      —{' '}
+                      {new Date(event.end_at).toLocaleDateString('es', {
+                        day: 'numeric',
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit',
                       })}
-                      <>
-                        {' '}
-                        —{' '}
-                        {new Date(event.end_at).toLocaleDateString('es', {
-                          day: 'numeric',
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </>
                     </p>
                   </div>
                 </div>

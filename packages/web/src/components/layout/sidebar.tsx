@@ -1,5 +1,8 @@
 'use client'
 
+import type { Event } from '@milestone/shared'
+import type { QueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { RefreshCw, Search, WifiOff } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
@@ -7,10 +10,48 @@ import { useState } from 'react'
 
 import { NotificationBell } from '@/components/layout/notification-bell'
 import { Badge } from '@/components/ui/badge'
+import { apiRequest } from '@/lib/api-client'
 import { useAuthStore } from '@/lib/auth-store'
+import { getCalendarDefaultEventsParams } from '@/lib/events-query'
 import { cn } from '@/lib/utils'
 import { useSyncState } from '@/providers/sync-provider'
 import { useTheme } from '@/providers/theme-provider'
+
+function formatConnectionStatus(isOnline: boolean, isSyncing: boolean) {
+  if (isSyncing) {
+    return {
+      icon: <RefreshCw className="h-3.5 w-3.5 animate-spin text-muted-foreground" />,
+      label: 'Sincronizando...',
+    }
+  }
+
+  if (isOnline) {
+    return {
+      icon: <span className="flex h-2 w-2 rounded-full bg-green-500" />,
+      label: 'En línea',
+    }
+  }
+
+  return {
+    icon: <WifiOff className="h-3.5 w-3.5 text-destructive" />,
+    label: 'Sin conexión',
+  }
+}
+
+async function prefetchCalendarEvents(queryClient: QueryClient) {
+  const params = getCalendarDefaultEventsParams()
+  await queryClient.prefetchQuery({
+    queryKey: ['events', params],
+    queryFn: async () => {
+      const res = await apiRequest<{
+        items: Event[]
+        meta: { page: number; limit: number; total: number }
+      }>('/events', { params })
+      if (!res.success) throw new Error(res.error.message)
+      return res.data
+    },
+  })
+}
 
 const navGroups = [
   {
@@ -36,7 +77,48 @@ const navGroups = [
   },
 ]
 
+type NavItem = (typeof navGroups)[number]['items'][number]
+
+function NavLinkItem({
+  item,
+  pathname,
+  onNavigate,
+  queryClient,
+}: Readonly<{
+  item: NavItem
+  pathname: string
+  onNavigate: () => void
+  queryClient: ReturnType<typeof useQueryClient>
+}>) {
+  const handleMouseEnter = () => {
+    if (item.href !== '/dashboard/calendario') return
+
+    prefetchCalendarEvents(queryClient).catch(() => undefined)
+  }
+
+  return (
+    <Link
+      href={item.href}
+      onMouseEnter={handleMouseEnter}
+      onClick={onNavigate}
+      aria-current={pathname === item.href ? 'page' : undefined}
+      className={cn(
+        'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+        pathname === item.href
+          ? 'bg-primary text-primary-foreground'
+          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+      )}
+    >
+      <span className="text-base" aria-hidden="true">
+        {item.icon}
+      </span>
+      {item.label}
+    </Link>
+  )
+}
+
 export function Sidebar() {
+  const queryClient = useQueryClient()
   const pathname = usePathname()
   const router = useRouter()
   const { user, logout } = useAuthStore()
@@ -88,28 +170,21 @@ export function Sidebar() {
         aria-label="Navegación principal"
         className="flex-1 overflow-y-auto p-4"
       >
-        {navGroups.map((group, groupIndex) => (
-          <div key={groupIndex} className={groupIndex > 0 ? 'mt-2 border-t pt-2' : ''}>
+        {navGroups.map((group) => (
+          <div
+            key={group.items[0]?.href ?? 'group'}
+            className={group !== navGroups[0] ? 'mt-2 border-t pt-2' : ''}
+          >
             {group.items.map((item) => (
-              <Link
+              <NavLinkItem
                 key={item.href}
-                href={item.href}
-                onClick={() => {
+                item={item}
+                pathname={pathname}
+                queryClient={queryClient}
+                onNavigate={() => {
                   setMobileOpen(false)
                 }}
-                aria-current={pathname === item.href ? 'page' : undefined}
-                className={cn(
-                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-                  pathname === item.href
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-                )}
-              >
-                <span className="text-base" aria-hidden="true">
-                  {item.icon}
-                </span>
-                {item.label}
-              </Link>
+              />
             ))}
           </div>
         ))}
@@ -139,22 +214,15 @@ export function Sidebar() {
         </button>
 
         <div className="flex items-center gap-2 rounded-md px-3 py-2 text-xs text-muted-foreground">
-          {isSyncing ? (
-            <>
-              <RefreshCw className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-              <span>Sincronizando...</span>
-            </>
-          ) : isOnline ? (
-            <>
-              <span className="flex h-2 w-2 rounded-full bg-green-500" />
-              <span>En línea</span>
-            </>
-          ) : (
-            <>
-              <WifiOff className="h-3.5 w-3.5 text-destructive" />
-              <span>Sin conexión</span>
-            </>
-          )}
+          {(() => {
+            const status = formatConnectionStatus(isOnline, isSyncing)
+            return (
+              <>
+                {status.icon}
+                <span>{status.label}</span>
+              </>
+            )
+          })()}
           {queueLength > 0 && (
             <Badge variant="outline" className="ml-auto text-[10px] leading-none">
               {queueLength}
@@ -197,8 +265,10 @@ export function Sidebar() {
       </button>
 
       {mobileOpen && (
-        <div
+        <button
+          type="button"
           className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+          aria-label="Cerrar menú"
           onClick={() => {
             setMobileOpen(false)
           }}

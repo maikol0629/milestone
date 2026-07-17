@@ -1,7 +1,7 @@
 'use client'
 
 import type { Event, CreateEventInput, UpdateEventInput } from '@milestone/shared'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { apiRequest } from '@/lib/api-client'
 
@@ -26,6 +26,7 @@ export function useEvents(params?: {
       if (!res.success) throw new Error(res.error.message)
       return { items: res.data, meta: res.meta ?? { page: 1, limit: 50, total: res.data.length } }
     },
+    placeholderData: keepPreviousData,
     retry: false,
   })
 }
@@ -51,7 +52,7 @@ export function useCreateEvent() {
       return res.data
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['events'] })
+      queryClient.invalidateQueries({ queryKey: ['events'] }).catch(() => undefined)
     },
   })
 }
@@ -109,7 +110,7 @@ export function useUpdateEvent() {
       })
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['events'] })
+      queryClient.invalidateQueries({ queryKey: ['events'] }).catch(() => undefined)
     },
   })
 }
@@ -142,7 +143,7 @@ export function useDeleteEvent() {
       })
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['events'] })
+      queryClient.invalidateQueries({ queryKey: ['events'] }).catch(() => undefined)
     },
   })
 }

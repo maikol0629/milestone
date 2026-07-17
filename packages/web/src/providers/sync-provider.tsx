@@ -1,7 +1,7 @@
 'use client'
 
 import { useQueryClient } from '@tanstack/react-query'
-import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useNetworkStatus } from '@/hooks/use-network-status'
 import { useAuthStore } from '@/lib/auth-store'
@@ -9,6 +9,7 @@ import { clearQueue, getQueueLength, processSyncQueue, pullChanges } from '@/lib
 
 const SYNC_TIMESTAMP_KEY = 'milestone-sync-timestamp'
 const PULL_INTERVAL = 5 * 60 * 1000
+const FRESH_SYNC_WINDOW_MS = 60 * 1000
 
 interface SyncState {
   isOnline: boolean
@@ -28,7 +29,9 @@ export function useSyncState() {
   return useContext(SyncContext)
 }
 
-export function SyncProvider({ children }: { children: React.ReactNode }) {
+type SyncProviderProps = Readonly<{ children: React.ReactNode }>
+
+export function SyncProvider({ children }: SyncProviderProps) {
   const queryClient = useQueryClient()
   const { isOnline } = useNetworkStatus()
   const user = useAuthStore((s) => s.user)
@@ -43,6 +46,11 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     const lastTimestamp = localStorage.getItem(SYNC_TIMESTAMP_KEY)
 
     if (!lastTimestamp) return
+
+    const lastSyncTime = new Date(lastTimestamp).getTime()
+    if (Number.isFinite(lastSyncTime) && Date.now() - lastSyncTime < FRESH_SYNC_WINDOW_MS) {
+      return
+    }
 
     void (async () => {
       try {
@@ -134,9 +142,10 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  return (
-    <SyncContext.Provider value={{ isOnline, isSyncing, queueLength, lastSyncAt }}>
-      {children}
-    </SyncContext.Provider>
+  const syncState = useMemo(
+    () => ({ isOnline, isSyncing, queueLength, lastSyncAt }),
+    [isOnline, isSyncing, queueLength, lastSyncAt],
   )
+
+  return <SyncContext.Provider value={syncState}>{children}</SyncContext.Provider>
 }

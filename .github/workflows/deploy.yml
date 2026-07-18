@@ -23,7 +23,9 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
+    environment:
+      name: milestone
+      url: ${{ steps.deploy.outputs.url }}
     steps:
       - name: Check prerequisite workflows
         id: prereq
@@ -78,7 +80,8 @@ jobs:
       - name: Stop if deployment already exists
         if: steps.prereq.outputs.ready == 'true' && steps.already.outputs.deployed == 'true'
         run: echo "Este commit ya fue desplegado."
-
+      
+    
       - name: Set up SSH
         if: steps.prereq.outputs.ready == 'true' && steps.already.outputs.deployed != 'true'
         uses: webfactory/ssh-agent@v0.9.0

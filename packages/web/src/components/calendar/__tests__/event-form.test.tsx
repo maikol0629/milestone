@@ -23,6 +23,30 @@ describe('EventForm', () => {
     expect(screen.getByText('Proyecto (opcional)')).toBeInTheDocument()
     expect(screen.getByText('Descripción')).toBeInTheDocument()
     expect(screen.getByText('Ubicación')).toBeInTheDocument()
+    expect(screen.getByText('Repetir')).toBeInTheDocument()
+  })
+
+  it('shows daily recurrence fields when "Diariamente" is selected', () => {
+    render(<EventForm areas={mockAreas} projects={mockProjects} onSubmit={jest.fn()} />)
+
+    fireEvent.change(screen.getByDisplayValue('No repetir'), {
+      target: { value: 'daily' },
+    })
+
+    expect(screen.getByText('Cada cuántos días')).toBeInTheDocument()
+    expect(screen.getByText('Fecha de fin (opcional)')).toBeInTheDocument()
+  })
+
+  it('shows weekly recurrence fields when "Semanalmente" is selected', () => {
+    render(<EventForm areas={mockAreas} projects={mockProjects} onSubmit={jest.fn()} />)
+
+    fireEvent.change(screen.getByDisplayValue('No repetir'), {
+      target: { value: 'weekly' },
+    })
+
+    expect(screen.getByText('Cada cuántas semanas')).toBeInTheDocument()
+    expect(screen.getByText('Días de la semana')).toBeInTheDocument()
+    expect(screen.getByText('Fecha de fin (opcional)')).toBeInTheDocument()
   })
 
   it('calls onCancel when cancel button is clicked', () => {

@@ -7,6 +7,7 @@ import {
   snapToMinutes,
   getLightEventColor,
   getEventDotColor,
+  getRecurrenceSummary,
   EVENT_TYPE_LABELS,
   EVENT_TYPE_ICONS,
 } from '../time-utils'
@@ -278,6 +279,59 @@ describe('EVENT_TYPE_ICONS', () => {
     expect(EVENT_TYPE_ICONS.event).toBe('📅')
     expect(EVENT_TYPE_ICONS.reminder).toBe('🔔')
     expect(EVENT_TYPE_ICONS.work_block).toBe('⏰')
+  })
+})
+
+describe('getRecurrenceSummary', () => {
+  it('returns "Una sola vez" for non-recurring events', () => {
+    expect(getRecurrenceSummary({})).toBe('Una sola vez')
+  })
+
+  it('formats daily recurrence', () => {
+    expect(
+      getRecurrenceSummary({
+        recurrence_rule: 'daily',
+        recurrence_interval: 1,
+      }),
+    ).toBe('Cada 1 día')
+  })
+
+  it('formats daily recurrence with interval', () => {
+    expect(
+      getRecurrenceSummary({
+        recurrence_rule: 'daily',
+        recurrence_interval: 3,
+      }),
+    ).toBe('Cada 3 días')
+  })
+
+  it('formats weekly recurrence', () => {
+    expect(
+      getRecurrenceSummary({
+        recurrence_rule: 'weekly',
+        recurrence_interval: 1,
+      }),
+    ).toBe('Cada 1 semana')
+  })
+
+  it('formats weekly recurrence with days', () => {
+    expect(
+      getRecurrenceSummary({
+        recurrence_rule: 'weekly',
+        recurrence_interval: 1,
+        recurrence_days_of_week: '1,3,5',
+      }),
+    ).toBe('Cada 1 semana (Lun, Mié, Vie)')
+  })
+
+  it('includes end date when provided', () => {
+    const result = getRecurrenceSummary({
+      recurrence_rule: 'daily',
+      recurrence_interval: 1,
+      recurrence_end_date: '2026-12-31T23:59:59Z',
+    })
+    expect(result).toContain('hasta')
+    expect(result).toContain('2026')
   })
 })
 

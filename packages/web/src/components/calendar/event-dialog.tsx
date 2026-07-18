@@ -5,7 +5,7 @@ import { X } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
 import { Button } from '@/components/ui/button'
-import { EVENT_TYPE_LABELS, EVENT_TYPE_ICONS } from '@/lib/time-utils'
+import { EVENT_TYPE_LABELS, EVENT_TYPE_ICONS, getRecurrenceSummary } from '@/lib/time-utils'
 import { cn } from '@/lib/utils'
 
 interface EventDialogProps {
@@ -110,6 +110,12 @@ export function EventDialog({ event, open, onClose, onEdit, onDelete }: EventDia
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">Ubicación:</span>
               <span>{event.location}</span>
+            </div>
+          )}
+          {event.recurrence_rule && (
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Repite:</span>
+              <span>{getRecurrenceSummary(event)}</span>
             </div>
           )}
         </div>

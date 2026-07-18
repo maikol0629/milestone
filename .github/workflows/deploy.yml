@@ -1,0 +1,117 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+      - Docker
+    types:
+      - completed
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  statuses: write
+
+concurrency:
+  group: deploy-${{ github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check prerequisite workflows
+        id: prereq
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha = context.payload.workflow_run?.head_sha || context.sha
+            const requiredWorkflows = new Set(['CI', 'Docker'])
+
+            const runs = await github.paginate(github.rest.actions.listWorkflowRunsForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head_sha: sha,
+              per_page: 100,
+            })
+
+            const completed = new Map([...requiredWorkflows].map((workflow) => [workflow, false]))
+
+            for (const run of runs) {
+              if (requiredWorkflows.has(run.name) && run.conclusion === 'success') {
+                completed.set(run.name, true)
+              }
+            }
+
+            const ready = [...requiredWorkflows].every((workflow) => completed.get(workflow))
+            core.setOutput('ready', ready ? 'true' : 'false')
+            core.setOutput('sha', sha)
+
+      - name: Stop until CI and Docker succeed
+        if: steps.prereq.outputs.ready != 'true'
+        run: |
+          echo "CI y Docker todavía no han terminado con éxito para este commit."
+          exit 0
+
+      - name: Skip if already deployed
+        id: already
+        if: steps.prereq.outputs.ready == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const sha = '${{ steps.prereq.outputs.sha }}'
+            const statuses = await github.paginate(github.rest.repos.listCommitStatusesForRef, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: sha,
+              per_page: 100,
+            })
+
+            const deployed = statuses.some((status) => status.context === 'deploy' && status.state === 'success')
+            core.setOutput('deployed', deployed ? 'true' : 'false')
+
+      - name: Stop if deployment already exists
+        if: steps.prereq.outputs.ready == 'true' && steps.already.outputs.deployed == 'true'
+        run: echo "Este commit ya fue desplegado."
+
+      - name: Set up SSH
+        if: steps.prereq.outputs.ready == 'true' && steps.already.outputs.deployed != 'true'
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
+
+      - name: Add VPS host key
+        if: steps.prereq.outputs.ready == 'true' && steps.already.outputs.deployed != 'true'
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "${{ secrets.VPS_SSH_PORT }}" -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy to VPS
+        if: steps.prereq.outputs.ready == 'true' && steps.already.outputs.deployed != 'true'
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_PORT: ${{ secrets.VPS_SSH_PORT }}
+          GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        run: |
+          ssh -p "$VPS_SSH_PORT" "$VPS_USER@$VPS_HOST" 'cd /home/deploy/milestone && GHCR_USERNAME="$GHCR_USERNAME" GHCR_TOKEN="$GHCR_TOKEN" sh deploy/up.sh'
+
+      - name: Mark commit as deployed
+        if: steps.prereq.outputs.ready == 'true' && steps.already.outputs.deployed != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: '${{ steps.prereq.outputs.sha }}',
+              state: 'success',
+              context: 'deploy',
+              description: 'Deployment completed successfully',
+            })

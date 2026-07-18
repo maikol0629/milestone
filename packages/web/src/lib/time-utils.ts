@@ -226,3 +226,40 @@ export const EVENT_TYPE_ICONS: Record<string, string> = {
   reminder: '🔔',
   work_block: '⏰',
 }
+
+const DAY_NAMES = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
+
+export function getRecurrenceSummary(event: {
+  recurrence_rule?: string | null
+  recurrence_interval?: number | null
+  recurrence_days_of_week?: string | null
+  recurrence_end_date?: string | Date | null
+}): string {
+  if (!event.recurrence_rule) return 'Una sola vez'
+
+  const interval = event.recurrence_interval ?? 1
+  let summary = `Cada ${String(interval)}`
+
+  if (event.recurrence_rule === 'daily') {
+    summary += interval === 1 ? ' día' : ' días'
+  } else {
+    summary += interval === 1 ? ' semana' : ' semanas'
+
+    if (event.recurrence_days_of_week) {
+      const days = event.recurrence_days_of_week
+        .split(',')
+        .map((d) => DAY_NAMES[parseInt(d, 10)] ?? d)
+      summary += ` (${days.join(', ')})`
+    }
+  }
+
+  if (event.recurrence_end_date) {
+    const endDate =
+      typeof event.recurrence_end_date === 'string'
+        ? new Date(event.recurrence_end_date)
+        : event.recurrence_end_date
+    summary += ` hasta ${endDate.toLocaleDateString('es-ES')}`
+  }
+
+  return summary
+}

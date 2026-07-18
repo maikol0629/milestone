@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { WorkBlockForm } from '../work-block-form'
 
 const mockProjects = [
@@ -19,9 +19,45 @@ describe('WorkBlockForm', () => {
     )
 
     expect(screen.getByText('Proyecto')).toBeInTheDocument()
-    expect(screen.getByText('Actividad')).toBeInTheDocument()
+    expect(screen.getByText('Actividad (opcional)')).toBeInTheDocument()
     expect(screen.getByText('Duración')).toBeInTheDocument()
     expect(screen.getByText('Prioridad')).toBeInTheDocument()
+    expect(screen.getByText('Repetir')).toBeInTheDocument()
+  })
+
+  it('shows "Sin actividad" as first option in activity select', () => {
+    render(
+      <WorkBlockForm projects={mockProjects} activities={mockActivities} onSubmit={jest.fn()} />,
+    )
+
+    expect(screen.getByText('Sin actividad')).toBeInTheDocument()
+  })
+
+  it('shows daily recurrence fields when "Diariamente" is selected', () => {
+    render(
+      <WorkBlockForm projects={mockProjects} activities={mockActivities} onSubmit={jest.fn()} />,
+    )
+
+    fireEvent.change(screen.getByDisplayValue('No repetir'), {
+      target: { value: 'daily' },
+    })
+
+    expect(screen.getByText('Cada cuántos días')).toBeInTheDocument()
+    expect(screen.getByText('Fecha de fin (opcional)')).toBeInTheDocument()
+  })
+
+  it('shows weekly recurrence fields when "Semanalmente" is selected', () => {
+    render(
+      <WorkBlockForm projects={mockProjects} activities={mockActivities} onSubmit={jest.fn()} />,
+    )
+
+    fireEvent.change(screen.getByDisplayValue('No repetir'), {
+      target: { value: 'weekly' },
+    })
+
+    expect(screen.getByText('Cada cuántas semanas')).toBeInTheDocument()
+    expect(screen.getByText('Días de la semana')).toBeInTheDocument()
+    expect(screen.getByText('Fecha de fin (opcional)')).toBeInTheDocument()
   })
 
   it('calls onCancel when cancel button is clicked', () => {

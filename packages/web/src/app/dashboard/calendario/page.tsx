@@ -19,6 +19,7 @@ import { Spinner } from '@/components/ui/spinner'
 import { useActivities } from '@/hooks/use-activities'
 import { useRequireAuth } from '@/hooks/use-auth'
 import { useEvents, useCreateEvent, useUpdateEvent, useDeleteEvent } from '@/hooks/use-events'
+import { useExpandedEvents } from '@/hooks/use-expanded-events'
 import { useLifeAreas } from '@/hooks/use-life-areas'
 import { useProjects } from '@/hooks/use-projects'
 import { getEventsRangeParams } from '@/lib/events-query'
@@ -49,6 +50,8 @@ export default function CalendarPage() {
   const [showForm, setShowForm] = useState<FormMode>(null)
   const limit = 50
 
+  const isCalendarView = viewMode !== 'list'
+
   const eventsParams: Record<string, string | number | undefined> = useMemo(
     () =>
       viewMode === 'list'
@@ -58,7 +61,21 @@ export default function CalendarPage() {
   )
 
   const { isLoading: authLoading } = useRequireAuth()
-  const { data: eventsData, isLoading, error } = useEvents(eventsParams)
+  const { data: listData, isLoading: listLoading } = useEvents(
+    viewMode === 'list' ? eventsParams : undefined,
+  )
+
+  const rangeParams = useMemo(
+    () =>
+      isCalendarView ? (eventsParams as { start: string; end: string }) : { start: '', end: '' },
+    [isCalendarView, eventsParams],
+  )
+
+  const { data: expandedData, isLoading: calendarLoading } = useExpandedEvents(
+    isCalendarView ? rangeParams : { start: '', end: '' },
+    isCalendarView,
+  )
+
   const { data: areas } = useLifeAreas()
   const { data: projects } = useProjects()
   const { data: activities } = useActivities()
@@ -66,7 +83,10 @@ export default function CalendarPage() {
   const update = useUpdateEvent()
   const del = useDeleteEvent()
 
-  const events = eventsData?.items
+  const events =
+    viewMode === 'list'
+      ? (listData?.items ?? [])
+      : ((expandedData?.items ?? []) as unknown as Event[])
 
   async function handleEventMove(eventId: string, newStart: Date, newEnd: Date) {
     try {
@@ -88,15 +108,23 @@ export default function CalendarPage() {
     description?: string | null
     area_id?: string | null
     location?: string | null
+    recurrence_rule?: string | null
+    recurrence_interval?: number | null
+    recurrence_days_of_week?: string | null
+    recurrence_end_date?: string | null
   }) {
     try {
       await create.mutateAsync({
         title: data.title,
         start_at: data.start_at,
         end_at: data.end_at,
-        type: 'event',
+        type: 'event' as const,
         description: data.description ?? null,
         activity_id: null,
+        recurrence_rule: (data.recurrence_rule ?? null) as 'daily' | 'weekly' | null,
+        recurrence_interval: data.recurrence_interval ?? null,
+        recurrence_days_of_week: data.recurrence_days_of_week ?? null,
+        recurrence_end_date: data.recurrence_end_date ?? null,
       })
       toast.success('Evento creado')
       setShowForm(null)
@@ -108,11 +136,15 @@ export default function CalendarPage() {
   async function handleCreateWorkBlock(data: {
     title: string
     type: 'work_block'
-    activity_id: string
+    activity_id: string | null
     duration_minutes: number
     priority: string
     start_at?: string | null
     end_at?: string | null
+    recurrence_rule?: string | null
+    recurrence_interval?: number | null
+    recurrence_days_of_week?: string | null
+    recurrence_end_date?: string | null
   }) {
     try {
       const now = new Date()
@@ -124,8 +156,12 @@ export default function CalendarPage() {
         title: data.title,
         start_at: start.toISOString(),
         end_at: end.toISOString(),
-        type: 'work_block',
+        type: 'work_block' as const,
         activity_id: data.activity_id,
+        recurrence_rule: (data.recurrence_rule ?? null) as 'daily' | 'weekly' | null,
+        recurrence_interval: data.recurrence_interval ?? null,
+        recurrence_days_of_week: data.recurrence_days_of_week ?? null,
+        recurrence_end_date: data.recurrence_end_date ?? null,
       })
       toast.success('Bloque de trabajo creado')
       setShowForm(null)
@@ -158,13 +194,11 @@ export default function CalendarPage() {
     { mode: 'list', icon: List, label: 'Lista' },
   ]
 
+  const isLoading = viewMode === 'list' ? listLoading : calendarLoading
+
   if (authLoading || isLoading) return <Spinner />
-  if (error)
-    return (
-      <div className="rounded-md bg-destructive/10 p-4 text-destructive">
-        Error: {error.message}
-      </div>
-    )
+  if (viewMode === 'list' && listData === undefined) return <Spinner />
+  if (isCalendarView && expandedData === undefined) return <Spinner />
 
   const areaOptions = (areas ?? []).map((a) => ({ value: a.id, label: a.name }))
   const projectOptions = (projects ?? []).map((p) => ({ value: p.id, label: p.name }))
@@ -278,7 +312,7 @@ export default function CalendarPage() {
 
       {viewMode === 'month' && (
         <CalendarGrid
-          events={events ?? []}
+          events={events}
           currentMonth={currentMonth}
           onMonthChange={setCurrentMonth}
           onEventClick={(event) => {
@@ -293,7 +327,7 @@ export default function CalendarPage() {
 
       {viewMode === 'week' && (
         <WeekView
-          events={events ?? []}
+          events={events}
           currentDate={currentDate}
           onDateChange={setCurrentDate}
           onEventClick={(event) => {
@@ -308,7 +342,7 @@ export default function CalendarPage() {
 
       {viewMode === 'day' && (
         <DayView
-          events={events ?? []}
+          events={events}
           currentDate={currentDate}
           onDateChange={setCurrentDate}
           onEventClick={(event) => {
@@ -324,7 +358,7 @@ export default function CalendarPage() {
       )}
 
       {viewMode === 'list' &&
-        (events?.length === 0 ? (
+        (events.length === 0 ? (
           <EmptyState
             icon="📅"
             title="No hay eventos"
@@ -332,7 +366,7 @@ export default function CalendarPage() {
           />
         ) : (
           <div className="space-y-2">
-            {events?.map((event) => (
+            {events.map((event) => (
               <div
                 key={event.id}
                 className="flex items-center justify-between rounded-lg border bg-card px-4 py-3"
